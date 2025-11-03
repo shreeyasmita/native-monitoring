@@ -2,77 +2,335 @@
 <html>
 <head>
     <title>System Monitoring</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
     <style>
-        .plotly-graph-div {
-            margin: auto;
-            width: 50%;
-            background-color: rgba(151, 128, 128, 0.688);
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
             padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.2em;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #1f77b4;
+        }
+        .gauge-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        .plotly-graph-div {
+            margin: 0 auto;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .controls button {
+            padding: 12px 30px;
+            margin: 0 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 25px;
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+        }
+        .controls button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        .alert {
+            padding: 15px 20px;
+            margin: 20px auto;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 800px;
+            font-weight: bold;
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .alert-danger {
+            background-color: #ff5f5f;
+            color: white;
+            box-shadow: 0 4px 8px rgba(255,95,95,0.4);
+        }
+        .alert-warning {
+            background-color: #ffeb84;
+            color: #856404;
+            box-shadow: 0 4px 8px rgba(255,235,132,0.4);
+        }
+        .alert-success {
+            background-color: #d9f0a3;
+            color: #2d5016;
+            box-shadow: 0 4px 8px rgba(217,240,163,0.4);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-good { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-critical { background-color: #dc3545; }
+        .info-text {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            margin-top: 20px;
+            font-size: 0.9em;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>System Monitoring</h1>
-        <div id="cpu-gauge"></div>
-        <div id="mem-gauge"></div>
-        {% if message %}
-        <div class="alert alert-danger">{{ message }}</div>
-        {% endif %}
+        <h1>🖥️ System Monitoring Dashboard</h1>
+        <p class="subtitle">Real-time Performance Metrics</p>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>CPU Usage</h3>
+                <div class="stat-value" id="cpu-value">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Memory Usage</h3>
+                <div class="stat-value" id="mem-value">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>System Status</h3>
+                <div class="stat-value" id="system-status" style="font-size: 1.5em;">
+                    <span class="status-indicator status-good"></span>Normal
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="updateMetrics()">🔄 Refresh Now</button>
+            <button onclick="toggleAutoRefresh()">⏸️ <span id="auto-text">Pause Auto-Refresh</span></button>
+        </div>
+        
+        <div id="alert-container"></div>
+        
+        <div class="gauge-container">
+            <div id="cpu-gauge"></div>
+        </div>
+        
+        <div class="gauge-container">
+            <div id="mem-gauge"></div>
+        </div>
+        
+        <p class="info-text">📊 Metrics update every 3 seconds | Values are simulated for demonstration</p>
     </div>
+    
     <script>
-        var cpuGauge = {
-            type: "indicator",
-            mode: "gauge+number",
-            value: {{ cpu_metric }},
-            gauge: {
-                axis: { range: [null, 100] },
-                bar: { color: "#1f77b4" },
-                bgcolor: "white",
-                borderwidth: 2,
-                bordercolor: "#ccc",
-                steps: [
-                    { range: [0, 50], color: "#d9f0a3" },
-                    { range: [50, 85], color: "#ffeb84" },
-                    { range: [85, 100], color: "#ff5f5f" }
-                ],
-                threshold: {
-                    line: { color: "red", width: 4 },
-                    thickness: 0.75,
-                    value: {{ cpu_metric }}
+        let cpuMetric = 35;
+        let memMetric = 48;
+        let autoRefreshInterval = null;
+        let isAutoRefreshOn = true;
+        
+        function createGauge(elementId, value, title) {
+            const gauge = {
+                type: "indicator",
+                mode: "gauge+number",
+                value: value,
+                number: { 
+                    suffix: "%",
+                    font: { size: 40, color: "#333" }
+                },
+                gauge: {
+                    axis: { 
+                        range: [null, 100],
+                        tickwidth: 2,
+                        tickcolor: "#666"
+                    },
+                    bar: { 
+                        color: value > 85 ? "#dc3545" : value > 50 ? "#ffc107" : "#28a745",
+                        thickness: 0.75
+                    },
+                    bgcolor: "white",
+                    borderwidth: 2,
+                    bordercolor: "#ddd",
+                    steps: [
+                        { range: [0, 50], color: "#d9f0a3" },
+                        { range: [50, 85], color: "#ffeb84" },
+                        { range: [85, 100], color: "#ffcccb" }
+                    ],
+                    threshold: {
+                        line: { color: "#dc3545", width: 4 },
+                        thickness: 0.75,
+                        value: 85
+                    }
+                }
+            };
+            
+            const layout = { 
+                title: {
+                    text: title,
+                    font: { size: 24, color: "#333", family: "Segoe UI" }
+                },
+                height: 350,
+                margin: { t: 80, b: 20, l: 50, r: 50 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: "Segoe UI" }
+            };
+            
+            Plotly.newPlot(elementId, [gauge], layout, {responsive: true});
+        }
+        
+        function checkAlerts() {
+            const alertContainer = document.getElementById('alert-container');
+            const systemStatus = document.getElementById('system-status');
+            let message = '';
+            let alertClass = '';
+            let statusText = '';
+            let statusClass = '';
+            
+            if (cpuMetric > 85 || memMetric > 85) {
+                message = '🚨 CRITICAL: System resources are critically high! Immediate attention required.';
+                alertClass = 'alert-danger';
+                statusText = '<span class="status-indicator status-critical"></span>Critical';
+                statusClass = 'status-critical';
+            } else if (cpuMetric > 70 || memMetric > 70) {
+                message = '⚠️ WARNING: System resources are elevated. Monitor closely.';
+                alertClass = 'alert-warning';
+                statusText = '<span class="status-indicator status-warning"></span>Warning';
+                statusClass = 'status-warning';
+            } else if (cpuMetric > 50 || memMetric > 50) {
+                message = '📊 NOTICE: System resources are moderate.';
+                alertClass = 'alert-success';
+                statusText = '<span class="status-indicator status-warning"></span>Moderate';
+                statusClass = 'status-warning';
+            } else {
+                message = '✅ HEALTHY: All systems operating normally.';
+                alertClass = 'alert-success';
+                statusText = '<span class="status-indicator status-good"></span>Normal';
+                statusClass = 'status-good';
+            }
+            
+            alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+            systemStatus.innerHTML = statusText;
+            systemStatus.style.color = statusClass === 'status-critical' ? '#dc3545' : 
+                                       statusClass === 'status-warning' ? '#ffc107' : '#28a745';
+        }
+        
+        function updateMetrics() {
+            // Simulate realistic system metrics with gradual changes
+            const cpuChange = (Math.random() - 0.5) * 15;
+            const memChange = (Math.random() - 0.5) * 10;
+            
+            cpuMetric = Math.min(100, Math.max(0, cpuMetric + cpuChange));
+            memMetric = Math.min(100, Math.max(0, memMetric + memChange));
+            
+            // Round to 1 decimal place
+            cpuMetric = Math.round(cpuMetric * 10) / 10;
+            memMetric = Math.round(memMetric * 10) / 10;
+            
+            // Update text displays
+            document.getElementById('cpu-value').textContent = cpuMetric.toFixed(1) + '%';
+            document.getElementById('mem-value').textContent = memMetric.toFixed(1) + '%';
+            
+            // Update gauges with color changes
+            const cpuColor = cpuMetric > 85 ? "#dc3545" : cpuMetric > 50 ? "#ffc107" : "#28a745";
+            const memColor = memMetric > 85 ? "#dc3545" : memMetric > 50 ? "#ffc107" : "#28a745";
+            
+            Plotly.restyle('cpu-gauge', {
+                'value': [cpuMetric],
+                'gauge.bar.color': [cpuColor]
+            });
+            
+            Plotly.restyle('mem-gauge', {
+                'value': [memMetric],
+                'gauge.bar.color': [memColor]
+            });
+            
+            checkAlerts();
+        }
+        
+        function toggleAutoRefresh() {
+            isAutoRefreshOn = !isAutoRefreshOn;
+            const autoText = document.getElementById('auto-text');
+            
+            if (isAutoRefreshOn) {
+                autoText.textContent = 'Pause Auto-Refresh';
+                startAutoRefresh();
+            } else {
+                autoText.textContent = 'Resume Auto-Refresh';
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
                 }
             }
-        };
+        }
         
-        var memGauge = {
-            type: "indicator",
-            mode: "gauge+number",
-            value: {{ mem_metric }},
-            gauge: {
-                axis: { range: [null, 100] },
-                bar: { color: "#1f77b4" },
-                bgcolor: "white",
-                borderwidth: 2,
-                bordercolor: "#ccc",
-                steps: [
-                    { range: [0, 50], color: "#d9f0a3" },
-                    { range: [50, 85], color: "#ffeb84" },
-                    { range: [85, 100], color: "#ff5f5f" }
-                ],
-                threshold: {
-                    line: { color: "red", width: 4 },
-                    thickness: 0.75,
-                    value: {{ mem_metric }}
-                }
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
             }
-        };
+            autoRefreshInterval = setInterval(updateMetrics, 3000);
+        }
         
-        var cpuGaugeLayout = { title: "CPU Utilization" };
-        var memGaugeLayout = { title: "Memory Utilization" };
-        
-        Plotly.newPlot('cpu-gauge', [cpuGauge], cpuGaugeLayout);
-        Plotly.newPlot('mem-gauge', [memGauge], memGaugeLayout);
+        // Initialize
+        createGauge('cpu-gauge', cpuMetric, '💻 CPU Utilization');
+        createGauge('mem-gauge', memMetric, '🧠 Memory Utilization');
+        updateMetrics();
+        startAutoRefresh();
     </script>
 </body>
 </html>
