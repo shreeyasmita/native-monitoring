@@ -82,6 +82,10 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
+        .controls button:focus {
+            outline: 3px solid rgba(102,126,234,0.35);
+            outline-offset: 3px;
+        }
         .alert {
             padding: 15px 20px;
             margin: 20px auto;
@@ -162,11 +166,11 @@
         </div>
         
         <div class="controls">
-            <button onclick="updateMetrics()">🔄 Refresh Now</button>
-            <button onclick="toggleAutoRefresh()">⏸️ <span id="auto-text">Pause Auto-Refresh</span></button>
+            <button id="refresh-btn" onclick="updateMetrics()" title="Refresh metrics (R)" aria-label="Refresh metrics">🔄 Refresh Now</button>
+            <button id="auto-btn" onclick="toggleAutoRefresh()" title="Pause or resume auto-refresh (Space)" aria-pressed="true" aria-label="Toggle auto refresh">⏸️ <span id="auto-text">Pause Auto-Refresh</span></button>
         </div>
         
-        <div id="alert-container"></div>
+        <div id="alert-container" role="status" aria-live="polite"></div>
         
         <div class="gauge-container">
             <div id="cpu-gauge"></div>
@@ -305,32 +309,50 @@
         
         function toggleAutoRefresh() {
             isAutoRefreshOn = !isAutoRefreshOn;
-            const autoText = document.getElementById('auto-text');
-            
+            const autoBtn = document.getElementById('auto-btn');
             if (isAutoRefreshOn) {
-                autoText.textContent = 'Pause Auto-Refresh';
+                // show pause icon and label, update aria
+                autoBtn.innerHTML = '⏸️ <span id="auto-text">Pause Auto-Refresh</span>';
+                autoBtn.setAttribute('aria-pressed', 'true');
                 startAutoRefresh();
             } else {
-                autoText.textContent = 'Resume Auto-Refresh';
+                // show play icon and label, update aria
+                autoBtn.innerHTML = '▶️ <span id="auto-text">Resume Auto-Refresh</span>';
+                autoBtn.setAttribute('aria-pressed', 'false');
                 if (autoRefreshInterval) {
                     clearInterval(autoRefreshInterval);
                     autoRefreshInterval = null;
                 }
             }
-        }
-        
-        function startAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
+         }
+
+         function startAutoRefresh() {
+             if (autoRefreshInterval) {
+                 clearInterval(autoRefreshInterval);
+             }
+             autoRefreshInterval = setInterval(updateMetrics, 3000);
+         }
+
+        // Keyboard shortcuts:
+        // R -> refresh now
+        // Space -> toggle auto-refresh (prevents page scroll)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'r' || e.key === 'R') {
+                updateMetrics();
+            } else if (e.code === 'Space') {
+                // prevent default scrolling when toggling
+                e.preventDefault();
+                toggleAutoRefresh();
             }
-            autoRefreshInterval = setInterval(updateMetrics, 3000);
-        }
-        
-        // Initialize
-        createGauge('cpu-gauge', cpuMetric, '💻 CPU Utilization');
-        createGauge('mem-gauge', memMetric, '🧠 Memory Utilization');
-        updateMetrics();
-        startAutoRefresh();
-    </script>
+        });
+
+         // Initialize
+         createGauge('cpu-gauge', cpuMetric, '💻 CPU Utilization');
+         createGauge('mem-gauge', memMetric, '🧠 Memory Utilization');
+         updateMetrics();
+         startAutoRefresh();
+         // ensure auto button aria state matches initial setting
+         document.getElementById('auto-btn').setAttribute('aria-pressed', isAutoRefreshOn ? 'true' : 'false');
+     </script>
 </body>
 </html>
